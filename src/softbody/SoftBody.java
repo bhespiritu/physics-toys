@@ -31,13 +31,16 @@ public class SoftBody extends JPanel implements MouseListener{
 	public float dt = 1/30f;
 	public int ppm = 5;
 	
-	public int NUMP = 100;
+	public int NUMP = 15;
 	public int NUMS = NUMP + 1;
 	private float BALLRADIUS = 5;
 	public float MASS = 1f;
 	public float SPRING = 10f;
-	public float DAMP = 2f;
-	public float pressure = 50;
+	public float DAMP = 0f;
+	public float pressure = 50*3;
+	
+	public boolean useGravity = true;
+	public float gravityStrength = 9.8f;
 	
 	public boolean isClicked = false;
 	public Node currentNode = null;
@@ -80,8 +83,8 @@ public class SoftBody extends JPanel implements MouseListener{
 		for(int i = 0; i < NUMP; i++)
 		{
 			nodes[i].force.x = 0;
-			
-			nodes[i].force.y = 9.8f*MASS*0;
+			if(useGravity)
+				nodes[i].force.y = gravityStrength*MASS;
 		}
 		
 		for(int i = 0; i < NUMS; i++)
