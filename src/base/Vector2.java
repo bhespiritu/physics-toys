@@ -6,7 +6,7 @@ public class Vector2 {
 	
 	public Vector2(float _x, float _y) {
 		x = _x;
-		y = _y;
+		y = _y; 
 	}
 	
 	public Vector2 add(Vector2 b)

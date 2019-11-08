@@ -15,7 +15,7 @@ public class Gravity2DDisplay extends JPanel{
 		frame.setContentPane(gravity);
 		frame.pack();
 		frame.setVisible(true);
-		for(;;)
+		for(;;) 
 		{
 			//System.out.println("PING");
 			gravity.timeStep();
