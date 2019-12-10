@@ -2,17 +2,20 @@ package gravity;
 import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.Graphics;
+import java.awt.event.KeyEvent;
+import java.awt.event.KeyListener;
 
 import javax.swing.JFrame;
 import javax.swing.JPanel;
 
-public class Gravity2DDisplay extends JPanel{
+public class Gravity2DDisplay extends JPanel implements KeyListener{
 
 	public static void main(String[] args) {
 		JFrame frame = new JFrame("Gravity");
 		frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 		Gravity2DDisplay gravity = new Gravity2DDisplay();
 		frame.setContentPane(gravity);
+		frame.addKeyListener(gravity);
 		frame.pack();
 		frame.setVisible(true);
 		for(;;) 
@@ -34,9 +37,9 @@ public class Gravity2DDisplay extends JPanel{
 	
 	
 	int ppm = 1;//pixels per meter
-	float dt = 1000f;
+	float dt = 100f*100;
 	int particleCount = 100000;
-	float particleMass = 10;
+	float particleMass = 1;
 	int gridSize = 250;
 	static int screenSize = 500;
 	float screenToGrid;
@@ -56,12 +59,13 @@ public class Gravity2DDisplay extends JPanel{
 			Particle p = new Particle();
 			p.px = (float) (screenSize*Math.random());
 			p.py = (float) (screenSize*Math.random());
+			//p.vx = (float) (p.py-screenSize/2)/10000;
+			//p.vy = (float) -(p.px-screenSize/2)/10000;
 			particles[i] = p;
 		}
 		potential = new Grid(gridSize,gridSize);
 		density = new Grid(gridSize,gridSize);
 		velocityX = new Grid(gridSize,gridSize);
-		velocityY = new Grid(gridSize,gridSize);
 		velocityY = new Grid(gridSize,gridSize);
 		delPX = new Grid(gridSize,gridSize);
 		delPY = new Grid(gridSize,gridSize);
@@ -85,6 +89,15 @@ public class Gravity2DDisplay extends JPanel{
 			velocityY.add(p.vy, (int)p.px, (int)p.py);
 		}
 		
+		for(int i = 0; i < gridSize*gridSize; i++)
+		{
+			float d = density.get(i)/particleMass;
+			float vX = velocityX.get(i);
+			float vY = velocityY.get(i);
+			velocityX.set(vX/d, i);
+			velocityY.set(vY/d, i);
+		}
+		
 		for(int k = 0; k < 20; k++)
 		{
 			for(int x = 0; x < gridSize; x++)
@@ -102,7 +115,13 @@ public class Gravity2DDisplay extends JPanel{
 				}
 			}
 		}
-		
+//		for(int i = 0; i < gridSize; i++)
+//		{
+//			potential.set(1, i,0);
+//			potential.set(1, 0,i);
+//			potential.set(1, i,gridSize-1);
+//			potential.set(1, gridSize-1,i);
+//		}
 		for(int x = 0; x < gridSize; x++)
 		{
 			for(int y = 0; y < gridSize; y++)
@@ -118,12 +137,18 @@ public class Gravity2DDisplay extends JPanel{
 			p.vx -= bilin_interp(delPX, p.px/screenToGrid, p.py/screenToGrid)*dt;
 			p.vy -= bilin_interp(delPY, p.px/screenToGrid, p.py/screenToGrid)*dt;
 			
-			//p.vx -= p.vx*0.01f;
-			//p.vy -= p.vy*0.01f;
+			float vX = velocityX.get(p.px/screenToGrid,p.py/screenToGrid);
+			float vY = velocityY.get(p.px/screenToGrid,p.py/screenToGrid);
 			
-			p.px += p.vx*dt;
-			p.py += p.vy*dt;
 			
+			p.px += p.vx*dt/particleMass;
+			p.py += p.vy*dt/particleMass;
+			
+			if(p.vx*p.vx + p.vy*p.vy > 1)
+			{
+				p.vx += -(p.vx - vX)*0.000000000000000000000000000000000000000000001f*density.get(p.px/screenToGrid,p.py/screenToGrid)/particleCount; 
+				p.vy += -(p.vy - vY)*0.000000000000000000000000000000000000000000001f*density.get(p.px/screenToGrid,p.py/screenToGrid)/particleCount;
+			}
 			while(p.px < 0)p.px += screenSize;
 			while(p.py < 0)p.py += screenSize;
 			p.px %= screenSize;
@@ -134,6 +159,9 @@ public class Gravity2DDisplay extends JPanel{
 			particles[i] = p;
 		}
 	}
+	
+	
+	int offsetX = 0, offsetY = 0;
 	
 	@Override
 	protected void paintComponent(Graphics g) {
@@ -156,29 +184,32 @@ public class Gravity2DDisplay extends JPanel{
 				if(scale > 1) scale = 1;
 				if(scale < 0) scale = 0;
 				g.setColor(new Color(0,0,.5f*(1-scale)));
-				//System.out.println(scale);
-				g.fillRect(x*2, y*2, 2, 2);
+				int pixX = (int) (x + offsetX/screenToGrid);
+				while (pixX < 0) pixX += gridSize;
+				pixX %= gridSize;
 				
-				float vX = delPX.get(x,y);
-				float vY = delPY.get(x,y);
-				float magnitude = (float) Math.sqrt(vX*vX + vY*vY);
-				
-				vX /= magnitude;
-				vY /= magnitude;
-				g.setColor(Color.red);
-				//g.drawLine(x*2, y*2, (int)(x+vX*2), (int)(y*vY*2));
+				int pixY = (int) (y + offsetY/screenToGrid);
+				while (pixY < 0) pixY += gridSize;
+				pixY %= gridSize;
+				g.fillRect((int)(pixX*screenToGrid), (int)(pixY*screenToGrid), (int)screenToGrid, (int)screenToGrid);
 				
 			}
 		}
 		for(int i = 0; i < particleCount; i++)
 		{
 			Particle p = particles[i];
-			float scale = Math.abs((float) (density.get((int)(p.px/2), (int)(p.py/2))/particleCount));
+			float scale = Math.abs((float) (density.get((p.px/screenToGrid),(p.py/screenToGrid))/particleCount));
 			scale = (float) lerp(0.1, 1, scale*1000);
 			if(scale > 1) scale = 1;
 			g.setColor(new Color(0,scale,0));
-			//g.setColor(Color.CYAN);
-			g.drawLine((int)(p.px), (int)(p.py),(int)(p.px), (int)(p.py));
+			//g.setColor(new Color(0,255,0,256/2));
+			int particleX = ((int)(p.px) + offsetX);
+			while (particleX < 0) particleX += screenSize;
+			particleX %= screenSize;
+			int particleY = ((int)(p.py) + offsetY);
+			while (particleY < 0) particleY += screenSize;
+			particleY %= screenSize;
+			g.drawLine(particleX, particleY,particleX, particleY);
 		}
 		
 				
@@ -196,7 +227,7 @@ public class Gravity2DDisplay extends JPanel{
 	{
 		
 		//assuming the coordinates are in gridspace coords
-		x+=.5; y +=.5;
+		//x+=.5; y +=.5;
 		int x1 = (int) x;
 		int y1 = (int) y;
 		int x2 = x1 + 1;
@@ -216,6 +247,39 @@ public class Gravity2DDisplay extends JPanel{
 		return blerp(q11,q21,q12,q22,dx,dy);
 		
 		//return idy*fxy1 + dy*fxy2;
+	}
+
+	@Override
+	public void keyPressed(KeyEvent ke) {
+		// TODO Auto-generated method stub
+		
+	}
+
+	@Override
+	public void keyReleased(KeyEvent ke) {
+		// TODO Auto-generated method stub
+		
+	}
+
+	@Override
+	public void keyTyped(KeyEvent ke) {
+		if(ke.getKeyChar() == 'd')
+		{
+			offsetX ++;
+		}
+		if(ke.getKeyChar() == 'a')
+		{
+			offsetX--;
+		}
+		if(ke.getKeyChar() == 'w')
+		{
+			offsetY--;
+		}
+		if(ke.getKeyChar() == 's')
+		{
+			offsetY++;
+		}
+		
 	}
 	
 }
